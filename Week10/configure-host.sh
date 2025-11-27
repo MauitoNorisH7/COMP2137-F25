@@ -12,6 +12,7 @@ hostentry_name=""
 hostentry_ip=""
 
 lan_interface=""
+netplan_file=$(ls /etc/netplan/*.yaml 2>/dev/null | head -n 1)
 
 #Argument activators and assignation.
 while [[ $# -gt 0 ]]; do
@@ -98,7 +99,7 @@ if $name_state; then
 fi
 
 #Assign a valid interface to assign the new IP ADDRES.
-if ip_state=true; then
+if $ip_state; then
 	if ip -4 addr show lan >/dev/null 2>&1; then
 		lan_interface="lan"
 	elif ip -4 addr show ens33 >/dev/null 2>&1; then
@@ -110,6 +111,10 @@ if ip_state=true; then
 	else
 		lan_interface=$(ip -4 route | awk '/default/ {print $5; exit}')
 	fi
+	if [[ -z "$lan_interface" ]]; then
+		echo "ERROR: LAN interface could not be located." >&2
+		exit 1
+	fi
 	
 	#Get current IP Address and its prefix.
 	current_ipAddressComplete=$(ip -4 addr show "$lan_interface" | awk '/inet/ {print $2}' | head -n 1)
@@ -117,7 +122,7 @@ if ip_state=true; then
 	current_prefix=${current_ipAddressComplete#*/}
 	#Notify user if ip address wasn't found.
 	if [[ -z "current_ipAddress" ]]; then
-	 echo "ERROR: It was not possible to determine the current IP Address."
+	 echo "ERROR: It was not possible to determine the current IP Address." >&2
 		exit 1
 	fi
 	#Verify if a change is necessary.
@@ -125,17 +130,17 @@ if ip_state=true; then
 	 log "IP Address in $lan_interface is already $desired_ip."
 	else
 		log "Changing IP Address in $lan_interface. From $current_ipAddress to $desired_ip."
-		hostname=$(hostnamectl --static 2>/dev/null || hostname)
+		hostname_var=$(hostnamectl --static 2>/dev/null || hostname)
 		#Update /etc/hosts with new IP.
-		if grep -qE "^[0-9.]+\s+$hostname(\s|$)" /etc/hosts; then
+		if grep -qE "^[0-9.]+\s+$hostname_var(\s|$)" /etc/hosts; then
 			#Use existing line to assign it.
-			old_ipAddress=$(awk "\$2 == \"$hostname\" {print \$1"} /etc/hosts | head -n 1)
+			old_ipAddress=$(awk "\$2 == \"$hostname_var\" {print \$1}" /etc/hosts | head -n 1)
 			if [[ "$old_ipAddress" != "$desired_ip" ]]; then
-				if ! sed -i.bak "s/^$old_ipAddress[[:space:]]\+$hostname/$desired_ip $hostname/" /etc/hosts; then
+				if ! sed -i.bak "s/^$old_ipAddress[[:space:]]\+$hostname_var/$desired_ip $hostname_var/" /etc/hosts; then
 					echo "ERROR: It was not possible to update /etc/hosts." >&2
 					exit 1
 				fi
-				log "Changed $hostname IP from $old_ipAddress to $desired_ip in /etc/hosts."
+				log "Changed $hostname_var IP from $old_ipAddress to $desired_ip in /etc/hosts."
 			else
 			 log "Is not necessary to change the IP in /etc/hosts."
 			fi
@@ -147,7 +152,7 @@ if ip_state=true; then
 			log "$current_ipAddress was replaced with $desired_ip in /etc/hosts."
 		#When there is no entry.
 		else 
-			if ! echo "$desired_ip   $hostname" >> /etc/hosts; then
+			if ! echo "$desired_ip   $hostname_var" >> /etc/hosts; then
 				echo "ERROR: Was not possible to append the IP in /etc/hosts."
 				exit 1
 			fi
@@ -169,7 +174,7 @@ if ip_state=true; then
 		 			exit 1
 		 		fi
 		 		log "netplan apply was successful."
-		 		netplan_exists = true
+		 		netplan_exists= true
 		 	fi
 		 else
 		 	log "Current IP $current_ipAddress was not found in the netplan file."
