@@ -123,7 +123,7 @@ if $ip_state; then
 	current_ipAddress=${current_ipAddressComplete%/*}
 	current_prefix=${current_ipAddressComplete#*/}
 	#Notify user if ip address wasn't found.
-	if [[ -z "current_ipAddress" ]]; then
+	if [[ -z "$current_ipAddress" ]]; then
 	 echo "ERROR: It was not possible to determine the current IP Address." >&2
 		exit 1
 	fi
@@ -176,7 +176,7 @@ if $ip_state; then
 		 			exit 1
 		 		fi
 		 		log "netplan apply was successful."
-		 		netplan_exists= true
+		 		netplan_exists=true
 		 	fi
 		 else
 		 	log "Current IP $current_ipAddress was not found in the netplan file."
@@ -209,15 +209,15 @@ fi
 #Manage hostentry argument.
 if $hostentry_state; then
  #Validate the input parameters.
-	if [[ -z "$hostentry_name" || -z "$hostentry_ip"; then
-		echo "ERROR: Both parameters are necessary in hostentry, first name and then IP."
+	if [[ -z "$hostentry_name" || -z "$hostentry_ip" ]]; then
+		echo "ERROR: Both parameters are necessary in hostentry, first name and then IP." >&2
 		exit 1
 	fi
 	#Validate the combination.
 	if grep -qE "^[[:space:]]${hostentry_ip}[[:space:]]+${hostentry_name}([[:space:]]|\$)" /etc/hosts; then
 		log "The desired hostentry is already in /etc/hosts."
 	else
-		existing_ip=$(awk "$2 == \$hostentry_name\" {print\$1}" /etc/hosts | head -n 1)
+		existing_ip=$(awk "\$2 == \$hostentry_name\" {print \$1}" /etc/hosts | head -n 1)
 		if [[ -n "$existing_ip" && "$existing_ip" != "$hostentry_ip" ]]; then
 			#Update with the new IP.
 			if ! sed -i.bak "s/^[[:space:]]${existing_ip}[[:space:]]\+${hostentry_name}/${hostentry_ip} ${hostentry_name}/" /etc/hosts; then
@@ -233,7 +233,7 @@ if $hostentry_state; then
 				exit 1
 			fi
 			log "Hostentry $hostentry_ip and $hostentry_name added successfuly."
-			logger "Hostentry $hostentry_ip and $hostentry_name were added."
+			logger -t "Hostentry $hostentry_ip and $hostentry_name were added."
 		fi
 	fi
 fi
