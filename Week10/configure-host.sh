@@ -94,6 +94,8 @@ if $name_state; then
    echo "ERROR: Hostname update in the system unsuccesful."
    exit 1
   fi
+  #Notify in the log system.
+		logger -t configure-host.sh "Hostname changed from $current_name to $desired_name."
   log "Hostname changed from $current_name to $desired_name."
  fi
 fi
@@ -203,5 +205,45 @@ if $ip_state; then
 		log "IP change completed."
 	fi
 fi
+
+#Manage hostentry argument.
+if $hostentry_state; then
+ #Validate the input parameters.
+	if [[ -z "$hostentry_name" || -z "$hostentry_ip"; then
+		echo "ERROR: Both parameters are necessary in hostentry, first name and then IP."
+		exit 1
+	fi
+	#Validate the combination.
+	if grep -qE "^[[:space:]]${hostentry_ip}[[:space:]]+${hostentry_name}([[:space:]]|\$)" /etc/hosts; then
+		log "The desired hostentry is already in /etc/hosts."
+	else
+		existing_ip=$(awk "$2 == \$hostentry_name\" {print\$1}" /etc/hosts | head -n 1)
+		if [[ -n "$existing_ip" && "$existing_ip" != "$hostentry_ip" ]]; then
+			#Update with the new IP.
+			if ! sed -i.bak "s/^[[:space:]]${existing_ip}[[:space:]]\+${hostentry_name}/${hostentry_ip} ${hostentry_name}/" /etc/hosts; then
+				echo "ERROR: Was not possible to update $hostentry_name in /etc/hosts" >&2
+				exit 1
+			fi
+			log "The IP $existing_ip was updated to $hostentry_ip for $hostentry_name in /etc/hosts."
+			logger -t configure-host.sh "he IP $existing_ip was updated to $hostentry_ip for $hostentry_name in /etc/hosts."
+		else
+			#It does not exist yet.
+			if ! echo "${hostentry_ip}   ${hostentry_name}" >> /etc/hosts; then
+				echo "ERROR: It was not possible to add your host entry."
+				exit 1
+			fi
+			log "Hostentry $hostentry_ip and $hostentry_name added successfuly."
+			logger "Hostentry $hostentry_ip and $hostentry_name were added."
+		fi
+	fi
+fi
+		
+		
+		
+		
+		
+		
+		
+		
 
 
